@@ -448,17 +448,17 @@ class SocketcanTest:
 		self.exit_on_error = exit_on_error
 
 		self.announce("INIT dut " + dut)
-		hostname, can_if = self.get_hostinfo(dut)
-		self._dut = SocketCanNode(can_if=can_if, role="dut", hostname=hostname)
+		hostname, can_if, user = self.get_hostinfo(dut)
+		self._dut = SocketCanNode(can_if=can_if, role="dut", hostname=hostname, username=user)
 
 		self.announce("INIT tester " + tester)
-		hostname, can_if = self.get_hostinfo(tester)
-		self._tester = SocketCanNode(can_if=can_if, role="tester", hostname=hostname)
+		hostname, can_if, user = self.get_hostinfo(tester)
+		self._tester = SocketCanNode(can_if=can_if, role="tester", hostname=hostname, username=user)
 
 		if acker:
 			self.announce("INIT acker " + acker)
-			hostname, can_if = self.get_hostinfo(acker)
-			self._acker = SocketCanNode(can_if=can_if, role="acker", hostname=hostname)
+			hostname, can_if, user = self.get_hostinfo(acker)
+			self._acker = SocketCanNode(can_if=can_if, role="acker", hostname=hostname, username=user)
 		else:
 			self._acker = None
 
@@ -489,9 +489,13 @@ class SocketcanTest:
 	def get_hostinfo(self, string):
 		parts = string.split(":")
 		if len(parts) == 1:
-			return None, string
+			return None, string, "root"
 
-		return parts[0], parts[1]
+		host = parts[0].split("@")
+		if len(host) == 1:
+			return parts[0], parts[1], "root"
+
+		return host[1], parts[1], host[0]
 
 	def eq(self, why, a, b):
 		if a != b:
