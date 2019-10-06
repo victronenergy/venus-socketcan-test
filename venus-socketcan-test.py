@@ -1,8 +1,6 @@
 #!/usr/bin/python3 -u
 
 import argparse
-import getpass
-import grp
 import json
 import os
 import paramiko
