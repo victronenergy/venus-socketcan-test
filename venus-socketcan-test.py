@@ -71,14 +71,15 @@ class SocketCanNode:
 		self.eq("should be down", state, "DOWN")
 		print("")
 
-	def if_up(self, bitrate = 250000, restart_ms = 0, tx_queue_len = 10):
+	def if_up(self, bitrate = 250000, restart_ms = 0, tx_queue_len = 10, ignore_upstate = False):
 		print("Up " + str(self))
 		self.run("ip link set " + self._can_if + " txqueuelen " + str(tx_queue_len) +
 				 " up type can bitrate " + str(bitrate) + " restart-ms " + str(restart_ms))
 		self.update_if_details()
 
 		state = self.poll(["linkinfo", "info_data", "state"], "ERROR-ACTIVE")
-		self.eq("up state", state , "ERROR-ACTIVE")
+		if not ignore_upstate:
+			self.eq("up state", state , "ERROR-ACTIVE")
 
 		# wait for link up? USB device postpone that it seems..
 		#state = self.poll(["operstate"], "UP")
