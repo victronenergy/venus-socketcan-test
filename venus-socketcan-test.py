@@ -677,9 +677,26 @@ class SocketcanTest:
 		# active error when error-passive. The tester is allowed to
 		# continue sending and can push the dut bus off.
 		self._dut.if_up(bitrate=250000)
-		self._tester.if_up(bitrate=125000)
 
+		self._tester.if_up(bitrate=125000)
 		self._dut.send_stuff_msg()
+		self._tester.if_down()
+
+		self._tester.if_up(bitrate=125000, ignore_upstate=True)
+		self._dut.send_stuff_msg()
+		self._tester.if_down()
+
+		self._tester.if_up(bitrate=125000, ignore_upstate=True)
+		self._dut.send_stuff_msg()
+		self._tester.if_down()
+
+		self._tester.if_up(bitrate=125000, ignore_upstate=True)
+		self._dut.send_stuff_msg()
+		self._tester.if_down()
+
+		self._tester.if_up(bitrate=125000, ignore_upstate=True)
+		self._dut.send_stuff_msg()
+
 		state = self._dut.poll(["linkinfo", "info_data", "state"], "BUS-OFF")
 		self.eq("after pushing bus off", state , "BUS-OFF")
 
