@@ -182,7 +182,7 @@ class SocketCanNode:
 			self.check_print("!!! ERROR !!!: " + why + " " + str(a) + " != " + str(b), True)
 			return
 
-		self.check_print("OK: " + why + " " + str(a) + " == " + str(b))
+		self.check_print("OK: " + why + ": " + str(a) + " == " + str(b))
 
 	def eq_p(self, why, what, expected):
 		value = self.get(what)
@@ -193,7 +193,7 @@ class SocketCanNode:
 			self.check_print("!!! ERROR !!!: " + why + " " + str(a) + " < " + str(b), True)
 			return
 
-		self.check_print("OK: " + why + " " + str(a) + " >= " + str(b))
+		self.check_print("OK: " + why + ": " + str(a) + " >= " + str(b))
 
 	def ge_p(self, why, what, expected):
 		value = self.get(what)
