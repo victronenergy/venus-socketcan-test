@@ -152,6 +152,10 @@ class SocketCanNode:
 		self.run("cansend " + self._can_if + " 7FF#FFFFFFFF")
 		self.update_if_details()
 
+	def send_zero_canid(self):
+		self.run("cansend " + self._can_if + " 00000000#")
+		self.update_if_details()
+
 	# note: needs a big txqueuelen!
 	def cangen(self, n):
 		self.run("cangen " + self._can_if + " -I i -D i -L 8 -g0 -p0 -n" + str(n))
@@ -461,6 +465,9 @@ class SocketcanTest:
 			self._acker = None
 
 	def run(self):
+		self.check_rx_error_passive()
+		exit(1)
+
 		self.check_send()
 		self.check_send_when_down()
 		self.check_bitrate_changes()
@@ -668,6 +675,36 @@ class SocketcanTest:
 		output = dumper.dump(silent=True)
 		did_notify = "controller-problem{back-to-error-active}" in output
 		self.eq("should send back-to-error-active", did_notify , True)
+
+	""" Check if the device goes in error-passive """
+	def check_rx_error_passive(self):
+		self.start_test("TESTING RX ERROR PASSIVE")
+
+		self._dut.if_up(bitrate=125000)
+		self._tester.if_up(bitrate=250000)
+
+		if self._dut.has_error_counters:
+			self._dut.eq_p("initial up state, rec", ["linkinfo", "info_data", "berr_counter", "rx"], 0)
+			self._dut.eq_p("initial up state, tec", ["linkinfo", "info_data", "berr_counter", "tx"], 0)
+
+		# make the dut rx error passive, it sees stuffing errors
+		self._tester.send_zero_canid()
+
+		# wait / check that it is error-passive
+		state = self._dut.poll(["linkinfo", "info_data", "state"], "ERROR-PASSIVE")
+		self.eq("should be error-passive", state , "ERROR-PASSIVE")
+		if self._dut.has_error_counters:
+			self._dut.ge_p("rec should be above 127", ["linkinfo", "info_data", "berr_counter", "rx"], 128)
+			self._dut.eq_p("tec should be 0", ["linkinfo", "info_data", "berr_counter", "tx"], 0)
+
+		# reset the tester, just in case
+		self._tester.if_down()
+
+		# with the tester being error-passive the acker and tester should be able
+		# to send at a different bitrate.
+		if (self._acker):
+			_ok, violation = self.send_msg_and_rcv_if(self._tester, self._acker)
+			self.eq("there should be no protocol violaton", violation, False)
 
 	def check_bus_off(self):
 		self.start_test("TESTING BUS OFF")
