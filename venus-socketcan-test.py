@@ -672,6 +672,8 @@ class SocketcanTest:
 		self.eq("error active again", state , "ERROR-ACTIVE")
 
 		output = dumper.dump(silent=True)
+		dumper.close()
+
 		did_notify = "controller-problem{back-to-error-active}" in output
 		self.eq("should send back-to-error-active", did_notify , True)
 
