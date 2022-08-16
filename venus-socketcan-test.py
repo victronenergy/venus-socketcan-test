@@ -23,6 +23,18 @@ def print_err(string):
 	if socketcanTest.exit_on_error:
 		os._exit(1)
 
+def print_wrn(string):
+	print(termcolor.colored(string, "yellow"))
+
+def print_ok(string):
+	print(termcolor.colored(string, "green"))
+
+def print_output(string, sep=' ', end='\n', file=sys.stdout, flush=False):
+	print(termcolor.colored(string, "white", attrs=['dark']), sep=sep, end=end, file=file, flush=flush)
+
+def print_cmd(string):
+	print(termcolor.colored(string, "blue"))
+
 class SocketCanNode:
 	def __init__(self, can_if, role, hostname = "", username = "root"):
 		self._can_if = can_if
@@ -45,7 +57,7 @@ class SocketCanNode:
 			print(hostname + " is a Venus device")
 			self.venus_init()
 
-		self.if_down()
+		self.if_down(verbose=False)
 		self.check_qdisc()
 
 		try:
@@ -62,17 +74,20 @@ class SocketCanNode:
 		self.ssh.connect(hostname=hostname, username=username, timeout=10)
 		self.ssh.invoke_shell()
 
-	def if_down(self):
-		print("Downing " + str(self))
+	def if_down(self, verbose=True):
+		if verbose:
+			print("Down " + str(self))
 		self.run("ip link set dev " + self._can_if + " down")
 		self.update_if_details()
 
 		state = self.poll(["operstate"], "DOWN")
 		self.eq("should be down", state, "DOWN")
-		print("")
+		if verbose:
+			print("")
 
-	def if_up(self, bitrate = 250000, restart_ms = 0, tx_queue_len = 10):
-		print("Up " + str(self))
+	def if_up(self, bitrate = 250000, restart_ms = 0, tx_queue_len = 10, verbose=True):
+		if verbose:
+			print("Up " + str(self))
 		self.run("ip link set " + self._can_if + " txqueuelen " + str(tx_queue_len) +
 				 " up type can bitrate " + str(bitrate) + " restart-ms " + str(restart_ms))
 		self.update_if_details()
@@ -84,7 +99,8 @@ class SocketCanNode:
 		#state = self.poll(["operstate"], "UP")
 		#self.eq("should be up", state, "UP")
 
-		print("")
+		if verbose:
+			print("")
 
 	""" Venus OS specific """
 	def venus_init(self):
@@ -103,12 +119,12 @@ class SocketCanNode:
 			self.update_if_details()
 
 	def __str__(self):
-		return self._can_if + " on " + self._name
+		return  self._name + ":" + self._can_if
 
 	### blocking call, will throw if exit code != 0 ###
 	def run(self, command, timeout = 3, silent = False):
 		if not silent:
-			print(self._name + ":" + self._can_if + "$ " + command)
+			print_cmd(self._name + ":" + self._can_if + "$ " + command)
 		if self.ssh:
 			_stdin, stdout, _stderr = self.ssh.exec_command(command + " &2>1", timeout=timeout)
 			ret = stdout.read().decode('utf-8')
@@ -175,7 +191,7 @@ class SocketCanNode:
 		if error:
 			print_err(string)
 		else:
-			print(string)
+			print_ok(string)
 
 	def eq(self, why, a, b):
 		if a != b:
@@ -254,7 +270,7 @@ class BackgroundProcess:
 		self.name = cmd[0]
 		self._stopped = False
 
-		print("Starting " + " ".join(cmd) + " on " + str(node))
+		print_cmd(str(node) + "$ " + " ".join(cmd) + " &")
 		if node.ssh:
 			transport = node.ssh.get_transport()
 			self._session = transport.open_session()
@@ -277,7 +293,10 @@ class BackgroundProcess:
 		self.cpu_dump_done = True
 
 	def close(self):
-		print("Stopping " + self.name + " on " + str(self._node))
+		if self._stopped:
+			return
+
+		print_cmd(str(self._node) + ": stop " + self.name)
 		if self._node.ssh:
 			self._session.close()
 		else:
@@ -323,7 +342,7 @@ class BackgroundProcess:
 					else:
 						break
 		if not silent:
-			print(ret, end='', flush=True)
+			print_output(ret, end='', flush=True)
 
 		return ret
 
@@ -398,11 +417,11 @@ class CanDump(BackgroundProcess):
 		if silent:
 			return ret
 
-		print("")
-		print("## CANDUMP output ##")
-		print(ret.rstrip("\n"))
-		print("## END CANDUMP output ##")
-		print("")
+		print_output("")
+		print_output("## CANDUMP output on " + str(self._node) + " ##")
+		print_output(ret.rstrip("\n"))
+		print_output("## END CANDUMP output ##")
+		print_output("")
 
 		return ret
 
@@ -422,7 +441,7 @@ class CanFdTest(BackgroundProcess):
 		if silent:
 			return ret
 
-		print(ret, end='', flush=True)
+		print_output(ret, end='', flush=True)
 
 		return ret
 
@@ -506,18 +525,19 @@ class SocketcanTest:
 			print_err("!!! ERROR !!!: " + why + " " + str(a) + " != " + str(b))
 			return
 
-		print(" OK: " + why + " " + str(a) + " == " + str(b))
+		print_ok("OK: " + why + " " + str(a) + " == " + str(b))
 
 	def ge(self, why, a, b):
 		if a < b:
 			print_err("!!! ERROR !!!: " + why + " " + str(a) + " < " + str(b))
 			return
 
-		print(" OK: " + why + " " + str(a) + " >= " + str(b))
+		print_ok("OK: " + why + " " + str(a) + " >= " + str(b))
 
 	def announce(self, text):
 		print("")
 		print(termcolor.colored("##### " + text + " #####", attrs=["bold"]))
+		print("")
 
 	def start_test(self, descr):
 		self.announce(descr)
@@ -540,7 +560,7 @@ class SocketcanTest:
 				dumper.close()
 				return False, protocol_violation
 			if dump:
-				print(msg)
+				print_output(msg)
 			if "protocol-violation" in msg:
 				protocol_violation = True
 			if msg.endswith("123   [8]  11 22 33 44 55 66 77 88"):
@@ -551,14 +571,15 @@ class SocketcanTest:
 		src.if_up(bitrate=bitrate)
 		target.if_up(bitrate=bitrate)
 
+		print("Sending msg from " + str(src) + " to " + str(target))
 		ok1, violation1 = self.send_msg_and_rcv(src, target, dump=True)
 		self.eq("sending a msg worked", ok1, True)
+		print()
 
+		print("Sending msg from " + str(target) + " to " + str(src))
 		ok2, violation2 = self.send_msg_and_rcv(target, src, dump=True)
 		self.eq("receiving a msg worked", ok2, True)
-
-		src.if_down()
-		target.if_down()
+		print()
 
 		return ok1 and ok2, violation1 or violation2
 
@@ -570,31 +591,37 @@ class SocketcanTest:
 	def check_send_when_down(self):
 		self.start_test("DOWN TEST")
 
-		self._dut.if_up()
+		print("Check if the DUT stops participating (acking) after down")
+		print("Enable it, send msg, down it, and check that the tester becomes error-passive")
+		self._dut.if_up(verbose=False)
 		self._dut.send_msg()
-		self._dut.if_down()
-		self._tester.if_up()
+		self._dut.if_down(verbose=False)
 
+		# If the DUT is really down, the tester can't send a message -> should become error-passive.
+		self._tester.if_up(verbose=False)
 		self._tester.send_msg()
 		state = self._tester.poll(["linkinfo", "info_data", "state"], "ERROR-PASSIVE")
 		self.eq("when dut is down tester should become passive", state , "ERROR-PASSIVE")
 
 	def check_bitrate_changes(self):
-		self.start_test("BITRATE CHANGES")
-		for _n in range(1, 3):
-			_ok, violation = self.send_msg_and_rcv_if(self._dut, self._tester, bitrate=500000)
-			self.eq("there should be no protocol violaton", violation, False)
-			print("")
-			_ok, violation = self.send_msg_and_rcv_if(self._dut, self._tester, bitrate=250000)
-			self.eq("there should be no protocol violaton", violation, False)
-			print("")
 
+		for n in range(1, 3):
+			self.start_test("BITRATE CHANGES (round " + str(n) + ", 500k)")
+			_ok, violation = self.send_msg_and_rcv_if(self._dut, self._tester, bitrate=500000)
+			self.eq("round " + str(n) + ", 500k) there should not have been any protocol violaton", violation, False)
+
+			self.start_test("BITRATE CHANGES (round " + str(n) + ", 250k)")
+			_ok, violation = self.send_msg_and_rcv_if(self._dut, self._tester, bitrate=250000)
+			self.eq("round " + str(n) + ", 250k) there should not have been any protocol violaton", violation, False)
 
 	""" Check if the device goes in error-passive and comes out of it again """
 	def check_tx_error_passive(self):
 		self.start_test("TESTING TX ERROR PASSIVE")
 
-		self._dut.if_up(tx_queue_len=1000)
+		print("Send a msg from the DUT while the testing is down (let candump sniff events)")
+		print("It should become error-passive (optionally go through error-warning)")
+
+		self._dut.if_up(tx_queue_len=1000, verbose=False)
 
 		# sniff around if it send events as well
 		dumper = CanDump(self._dut)
@@ -625,11 +652,14 @@ class SocketcanTest:
 		output = dumper.dump()
 		warning_support = "controller-problem{tx-error-warning}" in output
 
-		# how to check error passive?
-		# sja1000 can detect those, but were to get the info from?
+		# How to check it actually is error passive and not only reporting as such?
+		# The dut is still allowed to send passive errors.... The sja1000 can detect
+		# those, but were to get the info from / triggered it reliable?
+		# Lets trust the sillicon by lack of a decent test...
 
 		# Now lets see if it returns to error-active
-		self._tester.if_up()
+		print("Bring up the tester, to check leaving error-passive (becomes either error-warning or error-active)")
+		self._tester.if_up(verbose=False)
 
 		# now the still queued message should be send
 		if self._dut.has_error_counters:
@@ -640,7 +670,7 @@ class SocketcanTest:
 			time.sleep(0.100)
 			# transmission counters?
 
-		output = dumper.dump()
+		output = dumper.dump(silent=True)
 
 		if warning_support:
 			print(str(self._dut) + " has error-warning support")
@@ -664,9 +694,11 @@ class SocketcanTest:
 			output = dumper.dump(silent=True)
 		else:
 			# This is fine btw, as long as there is an error-passive state.
-			print(str(self._dut) + " has no error-warning support or there is no notification")
+			print_wrn(str(self._dut) + " has no error-warning support or there is no notification")
+			print()
 
 		# Sending half of the tec frames back should make it error active again
+		print("Make sure the dut becomes error-active again by sending enough msgs")
 		self._dut.cangen(int(tec / 2))
 		state = self._dut.poll(["linkinfo", "info_data", "state"], "ERROR-ACTIVE")
 		self.eq("error active again", state , "ERROR-ACTIVE")
@@ -683,29 +715,38 @@ class SocketcanTest:
 		# Create stuff errors on the dut. The dut should no longer
 		# active error when error-passive. The tester is allowed to
 		# continue sending and can push the dut bus off.
-		self._dut.if_up(bitrate=250000)
-		self._tester.if_up(bitrate=125000)
+		print("Push the dut bus-off with a msgs from the tester at a lower bitrate")
+		self._dut.if_up(bitrate=250000, verbose=False)
+		self._tester.if_up(bitrate=125000, verbose=False)
 
 		self._dut.send_stuff_msg()
-		state = self._dut.poll(["linkinfo", "info_data", "state"], "BUS-OFF")
-		self.eq("after pushing bus off", state , "BUS-OFF")
 
 		# reset the tester, it also saw all kinds of bus errors, but that
 		# was done on purpose...
-		self._tester.if_down()
+		self._tester.if_down(verbose=False)
 
+		state = self._dut.poll(["linkinfo", "info_data", "state"], "BUS-OFF")
+		self.eq("after pushing bus off", state , "BUS-OFF")
+		print()
+
+		# Note: this is a socketcan requirement, it will reset the CAN-bus after ms-restart.
+		# On embedded / standalone chips the requirement istypically exactly the opposite,
+		# it should recover eventually after leaving the bus undisturbed for a while.
+		print("Wait a 0.5 a second, to check it stays bus-off, i.o.w. no automatic recovery")
 		time.sleep(0.5)
 		state = self._dut.poll(["linkinfo", "info_data", "state"], "BUS-OFF")
 		self.eq("should stick in bus off", state , "BUS-OFF")
+		print()
 
 		if self._acker:
 			ok, violation = self.send_msg_and_rcv_if(self._tester, self._acker, bitrate=500000)
 			self.eq("sending at a different bitrate should work when dut is bus-off", ok, True)
 			self.eq("without violation", violation, False)
 
-		self._tester.if_up(bitrate=125000)
-		self._dut.if_down()
-		self._dut.if_up(bitrate=125000)
+		print("Down / up of the dut should get it out of bus-off")
+		self._tester.if_up(bitrate=125000, verbose=False)
+		self._dut.if_down(verbose=False)
+		self._dut.if_up(bitrate=125000, verbose=False)
 
 		active, violation = self.send_msg_and_rcv(self._dut, self._tester, dump=True)
 		self.eq("after down/up sending is possible again", active , True)
@@ -714,8 +755,9 @@ class SocketcanTest:
 	def check_canfdtest(self, sender, replier, bitrate):
 		self.start_test("CANFDTEST")
 
-		replier.if_up(bitrate=bitrate)
-		sender.if_up(bitrate=bitrate)
+		print("Full duplex test from " + str(sender._can_if) + " to " + str(replier._can_if))
+		replier.if_up(bitrate=bitrate, verbose=False)
+		sender.if_up(bitrate=bitrate, verbose=False)
 
 		on_acker = None
 		if self._acker:
@@ -727,9 +769,9 @@ class SocketcanTest:
 
 		result = ""
 		load = ""
-		print(replier._role + " " + str(replier) + ":")
 		print("")
-		print("===========================================")
+		print("Output of canfdtest on " + replier._role + " " + str(replier) + ":")
+		print_output("===========================================")
 		timeout = 30
 		while on_sender.returncode() is None and timeout > 0:
 			time.sleep(0.1)
@@ -740,6 +782,8 @@ class SocketcanTest:
 			if on_acker:
 				load += on_acker.dump(silent=True)
 
+		print("")
+		print_output("===========================================")
 		on_sender.dump_cpuinfo_once()
 		print("")
 
@@ -749,13 +793,16 @@ class SocketcanTest:
 			on_acker.dump_cpuinfo_once()
 			print("")
 
-		on_replier.close()
-		on_replier.dump_cpuinfo_once()
-
 		print("")
-		print(sender._role + " " + str(sender) + ":")
-		print("===========================================")
-		print(result)
+		print("Output of canfdtest on " + sender._role + " " + str(sender) + ":")
+		print_output("===========================================")
+		result += on_sender.dump(silent=True)
+		print_output(result)
+		print_output("===========================================")
+		on_replier.dump_cpuinfo_once()
+		print()
+
+		on_replier.close()
 
 		mismatch = "mismatch" in result
 		sender.eq("canfdtest no mismatches", mismatch, False)
@@ -771,8 +818,9 @@ class SocketcanTest:
 	def check_cansequence(self, sender, receiver, bitrate):
 		self.start_test("CANSEQUENCE")
 
-		sender.if_up(bitrate, tx_queue_len=1000)
-		receiver.if_up(bitrate)
+		print("Send full busload from " + str(sender) + " to " + str(receiver) + " and check for reordering or dropped frames")
+		sender.if_up(bitrate, tx_queue_len=1000, verbose=False)
+		receiver.if_up(bitrate, verbose=False)
 		on_receiver = CanSeqeuence(receiver)
 
 		on_acker = None
@@ -784,7 +832,7 @@ class SocketcanTest:
 
 		print("")
 		print("receiver: " + receiver._role + " " + str(receiver) + ":")
-		print("===========================================")
+		print_output("===========================================")
 		result = ""
 		load = ""
 		rx_output = ""
@@ -799,6 +847,7 @@ class SocketcanTest:
 				load += on_acker.dump(silent=True)
 
 		on_receiver.dump()
+		print_output("===========================================")
 		on_receiver.dump_cpuinfo_once()
 		print("")
 
@@ -810,25 +859,26 @@ class SocketcanTest:
 
 		result += on_sender.dump(silent=True)
 		on_sender.close()
-		on_sender.dump_cpuinfo_once()
 		print("")
 
+		print("sender: " + sender._role + " " + str(sender) + ":")
+		print_output("===========================================")
+		print_output(result)
+		print_output("===========================================")
+		on_sender.dump_cpuinfo_once()
+
+		if load:
+			print(self._acker._role + " " + str(self._acker) + ":")
+			print("===========================================")
+			print(load.replace("\n\n", "\n").strip("\n"))
+
+		print("")
 		tx_msg = "sequence wrap around" in rx_output
 		sender.eq("sender should have send msgs", tx_msg, True)
 		rx_msg = "sequence wrap around" in rx_output
 		receiver.eq("receiver should seen msg", rx_msg, True)
 		wrong = "received wrong sequence count" in rx_output
 		receiver.eq("should be no wrong seq", wrong, False)
-
-		print("")
-		print("sender: " + sender._role + " " + str(sender) + ":")
-		print("===========================================")
-		print(result)
-
-		if load:
-			print(self._acker._role + " " + str(self._acker) + ":")
-			print("===========================================")
-			print(load.replace("\n\n", "\n").strip("\n"))
 
 def main(argv):
 	global socketcanTest
