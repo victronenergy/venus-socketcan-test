@@ -105,7 +105,7 @@ class SocketCanNode:
 	def __str__(self):
 		return self._can_if + " on " + self._name
 
-	### blocking call, will throw is exit code != 0 ###
+	### blocking call, will throw if exit code != 0 ###
 	def run(self, command, timeout = 3, silent = False):
 		if not silent:
 			print(self._name + ":" + self._can_if + "$ " + command)
@@ -620,7 +620,7 @@ class SocketcanTest:
 			tec = 256
 
 		# Since it cannot send, this dump should be little verbose, only
-		# error messages... Remember if this sends a tx-error-warning if so
+		# error messages... Remember if this sends a tx-error-warning, if so
 		# it is expected to go away as well., when it can send again.
 		output = dumper.dump()
 		warning_support = "controller-problem{tx-error-warning}" in output
@@ -873,7 +873,7 @@ def main(argv):
 				  kvaser leaf light
 				  slcan (broken by design, can't even report its state)
 
-			Jeroen Hofsteee, Victron Energy B.V.
+			Jeroen Hofstee, Victron Energy B.V.
 
 			[1] https://github.com/linux-can/can-utils
 			[2] https://git.pengutronix.de/cgit/tools/canutils
