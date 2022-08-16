@@ -310,6 +310,12 @@ class BackgroundProcess:
 		else:
 			if self.p.stdout:
 				os.set_blocking(self.p.stdout.fileno(), False)
+
+				# make sure returncode is updated
+				if self.p.returncode is None:
+					if not self.p.poll() is None:
+						self._stopped = True
+
 				while True:
 					line = self.p.stdout.read(4096)
 					if line:
