@@ -867,10 +867,6 @@ def main(argv):
 				  kvaser leaf light
 				  slcan (broken by design, can't even report its state)
 
-			  * When using interfaces on the host, make sure this is done
-			    sudo setcap cap_net_raw,cap_net_admin=eip /bin/ip
-			    sudo setcap cap_net_raw,cap_net_admin=eip /sbin/tc
-
 			Jeroen Hofsteee, Victron Energy B.V.
 
 			[1] https://github.com/linux-can/can-utils
