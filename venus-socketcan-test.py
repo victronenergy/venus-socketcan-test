@@ -133,7 +133,7 @@ class SocketCanNode:
 				raise subprocess.CalledProcessError(exit_code, command, ret)
 			return ret
 
-		return subprocess.check_output(["/bin/sh", "-c", command]).decode('utf-8')
+		return subprocess.check_output(["/bin/sh", "-c", command], stderr=subprocess.STDOUT).decode('utf-8')
 
 	def run_parse_int(self, command):
 		result = self.run(command)
@@ -264,7 +264,7 @@ class CpuLoad:
 
 """ Background process which dumps socketcan traffic """
 class BackgroundProcess:
-	def __init__(self, node, cmd, get_pty=False):
+	def __init__(self, node, cmd, get_pty=False, buffermode=['-oL', '-eL']):
 		self._node = node
 		self._buf = ""
 		self.name = cmd[0]
@@ -281,7 +281,7 @@ class BackgroundProcess:
 				self._session.get_pty()
 			self._session.exec_command("exec " + " ".join(cmd))
 		else:
-			self.p = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+			self.p = subprocess.Popen(['stdbuf'] + buffermode + cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
 		self.cpu_load = CpuLoad(node)
 		self.cpu_dump_done = False
@@ -405,13 +405,6 @@ class CanDump(BackgroundProcess):
 		cmd = ["candump", "-e", node._can_if + ",0:0,#FFFFFFFF"]
 		BackgroundProcess.__init__(self, node, cmd)
 
-		timeout = 1000
-		while node.run('pid=$(pgrep -n candump) && if [ -e /proc/$pid/fd/3 ]; then echo 1; else echo 0; fi', silent=True) != "1\n":
-			time.sleep(0.050)
-			timeout -= 50
-			if timeout <= 0:
-				raise TimeoutError
-
 	def dump(self, silent = False):
 		ret = BackgroundProcess.dump(self, True)
 		if silent:
@@ -427,14 +420,7 @@ class CanDump(BackgroundProcess):
 
 class CanFdTest(BackgroundProcess):
 	def __init__(self, node, cmd):
-		BackgroundProcess.__init__(self, node, cmd)
-
-		timeout = 1
-		while node.run('pid=$(pgrep -n canfdtest) && if [ -e /proc/$pid/fd/3 ]; then echo 1; else echo 0; fi', silent=True) != "1\n":
-			time.sleep(0.050)
-			timeout -= 0.050
-			if timeout <= 0:
-				raise TimeoutError
+		BackgroundProcess.__init__(self, node, cmd, buffermode=['-o0', '-e0'])
 
 	def dump(self, silent = False):
 		ret = BackgroundProcess.dump(self, True).replace("N", "")
