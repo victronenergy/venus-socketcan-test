@@ -418,6 +418,15 @@ class CanDump(BackgroundProcess):
 
 		return ret
 
+	def containsControllerProblem(output, kind):
+		problems = re.findall(r"controller-problem{([a-z,-]+)}", output)
+		for problem in problems:
+			kinds = problem.split(",")
+			if kind in kinds:
+				return True
+
+		return False
+
 class CanFdTest(BackgroundProcess):
 	def __init__(self, node, cmd):
 		BackgroundProcess.__init__(self, node, cmd, buffermode=['-o0', '-e0'])
@@ -636,7 +645,7 @@ class SocketcanTest:
 		# error messages... Remember if this sends a tx-error-warning, if so
 		# it is expected to go away as well., when it can send again.
 		output = dumper.dump()
-		warning_support = "controller-problem{tx-error-warning}" in output
+		warning_support = CanDump.containsControllerProblem(output, "tx-error-warning")
 
 		# How to check it actually is error passive and not only reporting as such?
 		# The dut is still allowed to send passive errors.... The sja1000 can detect
@@ -654,7 +663,7 @@ class SocketcanTest:
 			self.eq("after tester is up, tec", tec, expected_tec)
 		else:
 			time.sleep(0.100)
-			# transmission counters?
+			tec = 128 # if there are no error counters available, just assume the tec, mmm of by one?
 
 		output = dumper.dump(silent=True)
 
@@ -664,18 +673,24 @@ class SocketcanTest:
 			# Run till just before the end of error warning..
 			n = int(tec) - 96
 			self._dut.cangen(n)
-			tec = self._dut.poll(["linkinfo", "info_data", "berr_counter", "tx"], 96)
-			self.eq("to error-warning", tec , 96)
+
+			# it should get in ERROR-WARNING again
+			state = self._dut.poll(["linkinfo", "info_data", "state"], "ERROR-WARNING")
+			self.eq("to error-warning", state , "ERROR-WARNING")
+
+			if self._dut.has_error_counters:
+				tec = self._dut.poll(["linkinfo", "info_data", "berr_counter", "tx"], 96)
+				self.eq("to error-warning", tec , 96)
+			else:
+				# well no error counter, just assume 96
+				tec = 96
 
 			# See https://github.com/torvalds/linux/commit/bac78aabcfece0c493b2ad824c68fbdc20448cbc,
 			# added later on..
 			output += dumper.dump(silent=True)
-			did_notify = "controller-problem{tx-error-warning}" in output
+			did_notify = CanDump.containsControllerProblem(output, "tx-error-warning")
 			self.eq("should send tx-error-warning again", did_notify , True)
-
-			# anyway, it should be in ERROR-WARNING again
-			state = self._dut.poll(["linkinfo", "info_data", "state"], "ERROR-WARNING")
-			self.eq("to error-warning", state , "ERROR-WARNING")
+			print()
 
 			output = dumper.dump(silent=True)
 		else:
