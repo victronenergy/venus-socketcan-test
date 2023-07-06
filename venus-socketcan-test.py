@@ -54,7 +54,7 @@ class SocketCanNode:
 		print("driver of " + str(self) + " is " + driver.strip())
 		self._is_venus = self.run_if('-d /etc/venus')
 		if self._is_venus:
-			print(hostname + " is a Venus device")
+			print(self._name + " is a Venus device")
 			self.venus_init()
 
 		self.if_down(verbose=False)
