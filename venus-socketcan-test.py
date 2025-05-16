@@ -743,6 +743,7 @@ class SocketcanTest:
 			ok, violation = self.send_msg_and_rcv_if(self._tester, self._acker, bitrate=500000)
 			self.eq("sending at a different bitrate should work when dut is bus-off", ok, True)
 			self.eq("without violation", violation, False)
+			self._tester.if_down(verbose=False)
 
 		print("Down / up of the dut should get it out of bus-off")
 		self._tester.if_up(bitrate=125000, verbose=False)
