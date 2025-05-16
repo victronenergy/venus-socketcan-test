@@ -899,7 +899,7 @@ def main(argv):
 			  * user@ccgx:can0 or user@192.168.1.1:can1 for other ssh users.
 
 			Dependencies (on the target):
-			  * This script relies on [1] and [2] being installed. The script doesn't
+			  * This script relies on can-utils [1] being installed. The script doesn't
 			    depend on Venus OS specifics, so it might be helpfull to test socketcan
 			    drivers in general, but the requirements might differ.
 			  * A recent version of iproute2 is need with json support.
@@ -917,20 +917,19 @@ def main(argv):
 			Notes:
 			  * Do make sure the tester itself passes the test. At very least do a
 			    proper reset on down / up, or the dut might get blamed for issues of
-			    the tester. The (optional) acker is less important. Known to be good
-				are in Venus after v2.40~32 are:
-				  octo / venusgx - D_CAN (C_CAN is _not_ tested, no machine has one)
-				  ccgx - ti_hecc
-				  cerbo - sun4i_can
-				  peakcan
-				not passing:
-				  kvaser leaf light
-				  slcan (broken by design, can't even report its state)
+			    the tester. The (optional) acker is less important. Never use a slcan
+			    driver (broken by design).
+			  * This should test the socketcan driver, not the cpu and processing many
+			    CAN-bus messages can be rather cpu hungry. Especially when running the
+			    test on a target device make sure there is enough cpu power, on Venus e.g.
+			    `svc -d /service/* && svc -u /service/openssh`.
+			  * Do make sure there is nothing else connected to the CAN-bus or at very
+			    least it should be down and known to actually be down. Otherwise it
+			    interferes with the test and the DUT might get the blaim.
 
 			Jeroen Hofstee, Victron Energy B.V.
 
 			[1] https://github.com/linux-can/can-utils
-			[2] https://git.pengutronix.de/cgit/tools/canutils
 			''')
 		)
 	parser.add_argument('-d', '--dut', help='socketcan interface to test')
